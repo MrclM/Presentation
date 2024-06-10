@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import json
+import os
 
 # Load the video
 video_path = 'output.avi'  # Change this to your AVI video file
@@ -32,18 +33,6 @@ sensor_df_right = pd.DataFrame({
     'dist': sensor_data_right["dist"]
 })
 
-# Gate sensors for left
-opening_left = [m['opening_sensor'] for m in sensor_data_left["sensors_old"]]
-presence_control_left = [m['presence_control_sensor'] for m in sensor_data_left["sensors_old"]]
-closing_left = [m['closing_sensor'] for m in sensor_data_left["sensors_old"]]
-time_pillar_left = [m['timestamp'] for m in sensor_data_left["sensors_old"]]
-
-# Gate sensors for right
-opening_right = [m['opening_sensor'] for m in sensor_data_right["sensors_old"]]
-presence_control_right = [m['presence_control_sensor'] for m in sensor_data_right["sensors_old"]]
-closing_right = [m['closing_sensor'] for m in sensor_data_right["sensors_old"]]
-time_pillar_right = [m['timestamp'] for m in sensor_data_right["sensors_old"]]
-
 # Get video properties
 fps = cap.get(cv2.CAP_PROP_FPS)
 frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -56,10 +45,21 @@ out = cv2.VideoWriter(output_path, fourcc, fps, (int(cap.get(3)), int(cap.get(4)
 
 # Create subplots for the sensor data
 plt.ion()
-fig, axs = plt.subplots(2, 1, figsize=(6, 6))
+fig = plt.figure(figsize=(10, 8))
+gs = fig.add_gridspec(3, 2)
+
+# Create axes
+ax1 = fig.add_subplot(gs[0, 0])
+ax2 = fig.add_subplot(gs[1, 0])
+ax3 = fig.add_subplot(gs[0, 1])
+ax4 = fig.add_subplot(gs[1, 1])
+ax5 = fig.add_subplot(gs[2, 1])
+
+axs = [ax1, ax2, ax3, ax4, ax5]
 
 # Function to update the subplots
 def update_plots(frame_time):
+    # Clear all axes
     for ax in axs:
         ax.clear()
 
@@ -67,23 +67,70 @@ def update_plots(frame_time):
     data_left = sensor_df_left[sensor_df_left['time'] <= frame_time]
     axs[0].plot(data_left['time'], data_left['intra'], 'r-')
     axs[0].set_xlim(0, duration)
-    axs[0].set_ylim(sensor_df_left['inter'].min(), sensor_df_left['intra'].max())
+    axs[0].set_ylim(0, sensor_df_left['intra'].max())
     axs[0].set_xlabel('Time (s)')
-    axs[0].set_ylabel('Left Sensor Value')
+    axs[0].set_ylabel('Left Intra')
+
+    axs[1].plot(data_left['time'], data_left['inter'], 'g-')
+    axs[1].set_xlim(0, duration)
+    axs[1].set_ylim(sensor_df_left['inter'].min(), sensor_df_left['inter'].max())
+    axs[1].set_xlabel('Time (s)')
+    axs[1].set_ylabel('Left Inter')
 
     # Plot for right sensor data
     data_right = sensor_df_right[sensor_df_right['time'] <= frame_time]
-    axs[1].plot(data_right['time'], data_right['inter'], 'b-')
-    axs[1].set_xlim(0, duration)
-    axs[1].set_ylim(sensor_df_right['inter'].min(), sensor_df_right['inter'].max())
-    axs[1].set_xlabel('Time (s)')
-    axs[1].set_ylabel('Right Sensor Value')
+    data_left = sensor_df_left[sensor_df_left['time'] <= frame_time]
+    # axs[2].plot(data_right['time'], data_right['recalc'], 'm-')
+    # axs[2].set_xlim(0, duration)
+    # axs[2].set_ylim(sensor_df_right['recalc'].min(), sensor_df_right['recalc'].max())
+    # axs[2].set_xlabel('Time (s)')
+    # axs[2].set_ylabel('Right Recalc')
+    
+     # Intra Score
+    axs[2].plot(data_left['time'], data_left['intra'], label='Left')
+    axs[2].plot(data_right['time'], data_right['intra'], label='Right')
+    axs[2].set_xlim(0, duration)
+    axs[2].set_title('Intra Score')
+    axs[2].legend()
+
+    # axs[3].plot(data_right['time'], data_right['inter'], 'c-')
+    # axs[3].set_xlim(0, duration)
+    # axs[3].set_ylim(sensor_df_right['inter'].min(), sensor_df_right['inter'].max())
+    # axs[3].set_xlabel('Time (s)')
+    # axs[3].set_ylabel('Right Inter')
+    
+    axes3 = axs[3].twinx()
+    axs[3].yaxis.label.set_color('C0')
+    axs[3].tick_params(axis='y', labelcolor='C0')  # Set the color of the right y-axis labels
+    axes3.tick_params(axis='y', labelcolor='C1')  # Set the color of the right y-axis labels
+    axs[3].plot(data_left['time'], data_left['inter'], label='Left')
+    axes3.plot(data_right['time'], data_right['inter'], label='Right', color='C1')
+    axs[3].set_xlim(0, duration)
+    # Combine legend handles and labels from both axes
+    handles, labels = axs[3].get_legend_handles_labels()
+    handles2, labels2 = axes3.get_legend_handles_labels()
+    handles += handles2
+    labels += labels2
+    axs[3].set_title('Inter Score')
+    
+    # Create a single legend
+    axs[3].legend(handles, labels, loc='upper left')
+
+    axs[4].plot(data_right['time'], data_right['dist'], 'b-')
+    axs[4].set_xlim(0, duration)
+    axs[4].set_ylim(sensor_df_right['dist'].min(), sensor_df_right['dist'].max())
+    axs[4].set_xlabel('Time (s)')
+    axs[4].set_ylabel('Right Distance')
 
     fig.canvas.draw()
     # Convert plot to image
     img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
     img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
     return img
+
+# Create directory to save images
+output_dir = 'frames'
+os.makedirs(output_dir, exist_ok=True)
 
 frame_number = 0
 while cap.isOpened():
@@ -93,7 +140,7 @@ while cap.isOpened():
 
     frame_time = frame_number / fps
 
-    # Update plots
+    # Update plot
     plot_img = update_plots(frame_time)
 
     # Resize plot image to match the video frame size
@@ -104,6 +151,9 @@ while cap.isOpened():
 
     # Write the frame to the output video
     out.write(overlay_frame)
+
+    # Save the frame as an image
+    cv2.imwrite(os.path.join(output_dir, f'frame_{frame_number:04d}.png'), overlay_frame)
 
     frame_number += 1
 
