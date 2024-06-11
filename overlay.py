@@ -33,6 +33,32 @@ sensor_df_right = pd.DataFrame({
     'dist': sensor_data_right["dist"]
 })
 
+ # Gate sensors
+opening_left = []
+presence_control_left = []
+closing_left = []
+time_pillar_left = []
+
+    
+for measurement in sensor_df_left:
+    opening_left.append(measurement['opening_sensor'])
+    presence_control_left.append(measurement['presence_control_sensor'])
+    closing_left.append(measurement['closing_sensor'])
+    time_pillar_left.append(measurement['timestamp'])
+
+# Gate sensors
+opening_right = []
+presence_control_right = []
+closing_right = []
+time_pillar_right = []
+
+
+for measurement in sensor_df_right:
+    opening_right.append(measurement['opening_sensor'])
+    presence_control_right.append(measurement['presence_control_sensor'])
+    closing_right.append(measurement['closing_sensor'])
+    time_pillar_right.append(measurement['timestamp'])
+
 # Get video properties
 fps = cap.get(cv2.CAP_PROP_FPS)
 frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -65,6 +91,8 @@ def update_plots(frame_time):
 
     # Plot for left sensor data
     data_left = sensor_df_left[sensor_df_left['time'] <= frame_time]
+    data_right = sensor_df_right[sensor_df_right['time'] <= frame_time]
+    
     axs[0].plot(data_left['time'], data_left['intra'], 'r-')
     axs[0].set_xlim(0, duration)
     axs[0].set_ylim(0, sensor_df_left['intra'].max())
@@ -73,13 +101,11 @@ def update_plots(frame_time):
 
     axs[1].plot(data_left['time'], data_left['inter'], 'g-')
     axs[1].set_xlim(0, duration)
-    axs[1].set_ylim(sensor_df_left['inter'].min(), sensor_df_left['inter'].max())
+    axs[1].set_ylim(0, sensor_df_left['inter'].max())
     axs[1].set_xlabel('Time (s)')
     axs[1].set_ylabel('Left Inter')
 
     # Plot for right sensor data
-    data_right = sensor_df_right[sensor_df_right['time'] <= frame_time]
-    data_left = sensor_df_left[sensor_df_left['time'] <= frame_time]
     # axs[2].plot(data_right['time'], data_right['recalc'], 'm-')
     # axs[2].set_xlim(0, duration)
     # axs[2].set_ylim(sensor_df_right['recalc'].min(), sensor_df_right['recalc'].max())
@@ -90,15 +116,9 @@ def update_plots(frame_time):
     axs[2].plot(data_left['time'], data_left['intra'], label='Left')
     axs[2].plot(data_right['time'], data_right['intra'], label='Right')
     axs[2].set_xlim(0, duration)
+    axs[2].set_ylim(0, max(sensor_df_left['intra'].max(), sensor_df_right['intra'].max()))
     axs[2].set_title('Intra Score')
-    axs[2].legend()
 
-    # axs[3].plot(data_right['time'], data_right['inter'], 'c-')
-    # axs[3].set_xlim(0, duration)
-    # axs[3].set_ylim(sensor_df_right['inter'].min(), sensor_df_right['inter'].max())
-    # axs[3].set_xlabel('Time (s)')
-    # axs[3].set_ylabel('Right Inter')
-    
     axes3 = axs[3].twinx()
     axs[3].yaxis.label.set_color('C0')
     axs[3].tick_params(axis='y', labelcolor='C0')  # Set the color of the right y-axis labels
@@ -106,21 +126,23 @@ def update_plots(frame_time):
     axs[3].plot(data_left['time'], data_left['inter'], label='Left')
     axes3.plot(data_right['time'], data_right['inter'], label='Right', color='C1')
     axs[3].set_xlim(0, duration)
+    axs[3].set_ylim(0, sensor_df_left['inter'].max())
+    axes3.set_ylim(0, sensor_df_right['inter'].max())
     # Combine legend handles and labels from both axes
     handles, labels = axs[3].get_legend_handles_labels()
     handles2, labels2 = axes3.get_legend_handles_labels()
     handles += handles2
     labels += labels2
-    axs[3].set_title('Inter Score')
-    
+    axs[3].set_title('Inter Score')  
     # Create a single legend
     axs[3].legend(handles, labels, loc='upper left')
 
-    axs[4].plot(data_right['time'], data_right['dist'], 'b-')
+    axs[4].plot(data_left['time'], data_left['recalc'], 'b-')
+    axs[4].plot(data_right['time'], data_right['recalc'], 'b-')
     axs[4].set_xlim(0, duration)
-    axs[4].set_ylim(sensor_df_right['dist'].min(), sensor_df_right['dist'].max())
+    axs[4].set_ylim(0, max(sensor_df_left['recalc'].max(), sensor_df_right['recalc'].max()))
     axs[4].set_xlabel('Time (s)')
-    axs[4].set_ylabel('Right Distance')
+    axs[4].legend()
 
     fig.canvas.draw()
     # Convert plot to image
