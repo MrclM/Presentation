@@ -33,36 +33,33 @@ sensor_df_right = pd.DataFrame({
     'dist': sensor_data_right["dist"]
 })
 
- # Gate sensors
-opening_left = []
-presence_control_left = []
-closing_left = []
-time_pillar_left = []
+# Gate sensors (assuming you have 'opening_sensor', 'presence_control_sensor', 'closing_sensor', and 'timestamp' in your JSON data)
+# For simplicity, the original JSON data structure used in your example is maintained
+# However, the loop for extracting sensor data was incorrect
+# So we can create the arrays without unnecessary loops
 
-    
-for measurement in sensor_df_left:
-    opening_left.append(measurement['opening_sensor'])
-    presence_control_left.append(measurement['presence_control_sensor'])
-    closing_left.append(measurement['closing_sensor'])
-    time_pillar_left.append(measurement['timestamp'])
+# Gate sensors left (assuming all sensors and timestamps are present in the JSON data)
+opening_left = sensor_data_left.get('opening_sensor', [])
+presence_control_left = sensor_data_left.get('presence_control_sensor', [])
+closing_left = sensor_data_left.get('closing_sensor', [])
+time_pillar_left = sensor_data_left.get('timestamp', [])
 
-# Gate sensors
-opening_right = []
-presence_control_right = []
-closing_right = []
-time_pillar_right = []
+# Gate sensors right (assuming all sensors and timestamps are present in the JSON data)
+opening_right = sensor_data_right.get('opening_sensor', [])
+presence_control_right = sensor_data_right.get('presence_control_sensor', [])
+closing_right = sensor_data_right.get('closing_sensor', [])
+time_pillar_right = sensor_data_right.get('timestamp', [])
 
-
-for measurement in sensor_df_right:
-    opening_right.append(measurement['opening_sensor'])
-    presence_control_right.append(measurement['presence_control_sensor'])
-    closing_right.append(measurement['closing_sensor'])
-    time_pillar_right.append(measurement['timestamp'])
+# Get the maximum recorded time
+max_time = max(sensor_df_left['time'].max(), sensor_df_right['time'].max())
 
 # Get video properties
 fps = cap.get(cv2.CAP_PROP_FPS)
 frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 duration = frame_count / fps
+
+# Calculate the frame number to stop at
+max_frame_number = int(max_time * fps)
 
 # Create a VideoWriter object to save the output video
 output_path = 'overlay.avi'  # Change this to your desired output file
@@ -94,28 +91,21 @@ def update_plots(frame_time):
     data_right = sensor_df_right[sensor_df_right['time'] <= frame_time]
     
     axs[0].plot(data_left['time'], data_left['intra'], 'r-')
-    axs[0].set_xlim(0, duration)
+    axs[0].set_xlim(0, max_time)
     axs[0].set_ylim(0, sensor_df_left['intra'].max())
     axs[0].set_xlabel('Time (s)')
     axs[0].set_ylabel('Left Intra')
 
     axs[1].plot(data_left['time'], data_left['inter'], 'g-')
-    axs[1].set_xlim(0, duration)
+    axs[1].set_xlim(0, max_time)
     axs[1].set_ylim(0, sensor_df_left['inter'].max())
     axs[1].set_xlabel('Time (s)')
     axs[1].set_ylabel('Left Inter')
 
-    # Plot for right sensor data
-    # axs[2].plot(data_right['time'], data_right['recalc'], 'm-')
-    # axs[2].set_xlim(0, duration)
-    # axs[2].set_ylim(sensor_df_right['recalc'].min(), sensor_df_right['recalc'].max())
-    # axs[2].set_xlabel('Time (s)')
-    # axs[2].set_ylabel('Right Recalc')
-    
-     # Intra Score
+    # Intra Score
     axs[2].plot(data_left['time'], data_left['intra'], label='Left')
     axs[2].plot(data_right['time'], data_right['intra'], label='Right')
-    axs[2].set_xlim(0, duration)
+    axs[2].set_xlim(0, max_time)
     axs[2].set_ylim(0, max(sensor_df_left['intra'].max(), sensor_df_right['intra'].max()))
     axs[2].set_title('Intra Score')
 
@@ -125,7 +115,7 @@ def update_plots(frame_time):
     axes3.tick_params(axis='y', labelcolor='C1')  # Set the color of the right y-axis labels
     axs[3].plot(data_left['time'], data_left['inter'], label='Left')
     axes3.plot(data_right['time'], data_right['inter'], label='Right', color='C1')
-    axs[3].set_xlim(0, duration)
+    axs[3].set_xlim(0, max_time)
     axs[3].set_ylim(0, sensor_df_left['inter'].max())
     axes3.set_ylim(0, sensor_df_right['inter'].max())
     # Combine legend handles and labels from both axes
@@ -137,9 +127,9 @@ def update_plots(frame_time):
     # Create a single legend
     axs[3].legend(handles, labels, loc='upper left')
 
-    axs[4].plot(data_left['time'], data_left['recalc'], 'b-')
-    axs[4].plot(data_right['time'], data_right['recalc'], 'b-')
-    axs[4].set_xlim(0, duration)
+    axs[4].plot(data_left['time'], data_left['recalc'], label='Left')
+    axs[4].plot(data_right['time'], data_right['recalc'], label='Right')
+    axs[4].set_xlim(0, max_time)
     axs[4].set_ylim(0, max(sensor_df_left['recalc'].max(), sensor_df_right['recalc'].max()))
     axs[4].set_xlabel('Time (s)')
     axs[4].legend()
@@ -155,7 +145,7 @@ output_dir = 'frames'
 os.makedirs(output_dir, exist_ok=True)
 
 frame_number = 0
-while cap.isOpened():
+while cap.isOpened() and frame_number <= max_frame_number:
     ret, frame = cap.read()
     if not ret:
         break
