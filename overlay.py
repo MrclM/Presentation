@@ -53,13 +53,16 @@ time_pillar_right = sensor_data_right.get('timestamp', [])
 # Get the maximum recorded time
 max_time = max(sensor_df_left['time'].max(), sensor_df_right['time'].max())
 
+# Define the offset (in seconds) to sync the video with sensor data
+offset = 0.6  # Adjust this value based on your specific offset
+
 # Get video properties
 fps = cap.get(cv2.CAP_PROP_FPS)
 frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 duration = frame_count / fps
 
 # Calculate the frame number to stop at
-max_frame_number = int(max_time * fps)
+max_frame_number = int((max_time + offset) * fps)
 
 # Create a VideoWriter object to save the output video
 output_path = 'overlay.avi'  # Change this to your desired output file
@@ -86,9 +89,12 @@ def update_plots(frame_time):
     for ax in axs:
         ax.clear()
 
+    # Adjust frame time by subtracting the offset
+    adjusted_time = frame_time - offset
+
     # Plot for left sensor data
-    data_left = sensor_df_left[sensor_df_left['time'] <= frame_time]
-    data_right = sensor_df_right[sensor_df_right['time'] <= frame_time]
+    data_left = sensor_df_left[sensor_df_left['time'] <= adjusted_time]
+    data_right = sensor_df_right[sensor_df_right['time'] <= adjusted_time]
     
     axs[0].plot(data_left['time'], data_left['intra'], 'r-')
     axs[0].set_xlim(0, max_time)
@@ -163,9 +169,6 @@ while cap.isOpened() and frame_number <= max_frame_number:
 
     # Write the frame to the output video
     out.write(overlay_frame)
-
-    # Save the frame as an image
-    cv2.imwrite(os.path.join(output_dir, f'frame_{frame_number:04d}.png'), overlay_frame)
 
     frame_number += 1
 
