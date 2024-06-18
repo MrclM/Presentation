@@ -16,13 +16,18 @@ with open('single_mes__Left.json') as f:
 with open('single_mes__Right.json') as f:
     sensor_data_right = json.load(f)
 
+with open('interpolated_data.json') as f:
+    sensor_data_old = json.load(f)
+
 # Extract data
 sensor_df_left = pd.DataFrame({
     'intra': sensor_data_left["intra"],
     'inter': sensor_data_left["inter"],
     'time': sensor_data_left["time"],
     'recalc': sensor_data_left["recalc"],
-    'dist': sensor_data_left["dist"]
+    'dist': sensor_data_left["dist"],
+    'presence_control': sensor_data_old["presence_control_left"],
+    'closing': sensor_data_old["closing_left"]
 })
 
 sensor_df_right = pd.DataFrame({
@@ -30,25 +35,12 @@ sensor_df_right = pd.DataFrame({
     'inter': sensor_data_right["inter"],
     'time': sensor_data_right["time"],
     'recalc': sensor_data_right["recalc"],
-    'dist': sensor_data_right["dist"]
+    'dist': sensor_data_right["dist"],
+    'presence_control': sensor_data_old["presence_control_right"],
+    'closing': sensor_data_old["closing_right"]
 })
 
-# Gate sensors (assuming you have 'opening_sensor', 'presence_control_sensor', 'closing_sensor', and 'timestamp' in your JSON data)
-# For simplicity, the original JSON data structure used in your example is maintained
-# However, the loop for extracting sensor data was incorrect
-# So we can create the arrays without unnecessary loops
 
-# Gate sensors left (assuming all sensors and timestamps are present in the JSON data)
-opening_left = sensor_data_left.get('opening_sensor', [])
-presence_control_left = sensor_data_left.get('presence_control_sensor', [])
-closing_left = sensor_data_left.get('closing_sensor', [])
-time_pillar_left = sensor_data_left.get('timestamp', [])
-
-# Gate sensors right (assuming all sensors and timestamps are present in the JSON data)
-opening_right = sensor_data_right.get('opening_sensor', [])
-presence_control_right = sensor_data_right.get('presence_control_sensor', [])
-closing_right = sensor_data_right.get('closing_sensor', [])
-time_pillar_right = sensor_data_right.get('timestamp', [])
 
 # Get the maximum recorded time
 max_time = max(sensor_df_left['time'].max(), sensor_df_right['time'].max())
@@ -96,17 +88,22 @@ def update_plots(frame_time):
     data_left = sensor_df_left[sensor_df_left['time'] <= adjusted_time]
     data_right = sensor_df_right[sensor_df_right['time'] <= adjusted_time]
     
-    axs[0].plot(data_left['time'], data_left['intra'], 'r-')
+    axs[0].plot(data_left['time'], data_left['presence_control'], label='Presence/Control')
+    axs[0].plot(data_left['time'], data_left['closing'], label='Closing')
     axs[0].set_xlim(0, max_time)
-    axs[0].set_ylim(0, sensor_df_left['intra'].max())
-    axs[0].set_xlabel('Time (s)')
-    axs[0].set_ylabel('Left Intra')
+    axs[0].set_yticks([0, 1])
+    axs[0].set_yticklabels(['Low', 'High'])
+    axs[0].set_title('Infrared Sensors Left')
+    axs[0].legend(loc='upper right')
 
-    axs[1].plot(data_left['time'], data_left['inter'], 'g-')
+    axs[1].plot(data_right['time'], data_right['presence_control'], label='Presence/Control')
+    axs[1].plot(data_right['time'], data_right['closing'], label='Closing')
     axs[1].set_xlim(0, max_time)
-    axs[1].set_ylim(0, sensor_df_left['inter'].max())
-    axs[1].set_xlabel('Time (s)')
-    axs[1].set_ylabel('Left Inter')
+    axs[1].set_yticks([0, 1])
+    axs[1].set_yticklabels(['Low', 'High'])
+    axs[1].set_title('Infrared Sensors Right')
+    axs[1].set_xlabel('Time [s]')
+    axs[1].legend(loc='upper right')
 
     # Intra Score
     axs[2].plot(data_left['time'], data_left['intra'], label='Left')
@@ -114,6 +111,7 @@ def update_plots(frame_time):
     axs[2].set_xlim(0, max_time)
     axs[2].set_ylim(0, max(sensor_df_left['intra'].max(), sensor_df_right['intra'].max()))
     axs[2].set_title('Intra Score')
+    axs[2].legend(loc='upper right')
 
     axes3 = axs[3].twinx()
     axs[3].yaxis.label.set_color('C0')
@@ -131,15 +129,17 @@ def update_plots(frame_time):
     labels += labels2
     axs[3].set_title('Inter Score')  
     # Create a single legend
-    axs[3].legend(handles, labels, loc='upper left')
+    axs[3].legend(handles, labels, loc='upper right')
 
     axs[4].plot(data_left['time'], data_left['recalc'], label='Left')
     axs[4].plot(data_right['time'], data_right['recalc'], label='Right')
     axs[4].set_xlim(0, max_time)
     axs[4].set_ylim(0, max(sensor_df_left['recalc'].max(), sensor_df_right['recalc'].max()))
-    axs[4].set_xlabel('Time (s)')
-    axs[4].legend()
+    axs[4].set_xlabel('Time [s]')
+    axs[4].legend(loc='upper right')
+    axs[4].set_title('Distance [mm]')
 
+    fig.tight_layout()
     fig.canvas.draw()
     # Convert plot to image
     img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
@@ -165,7 +165,7 @@ while cap.isOpened() and frame_number <= max_frame_number:
     plot_img = cv2.resize(plot_img, (frame.shape[1], frame.shape[0]))
 
     # Overlay the plot on the video frame
-    overlay_frame = cv2.addWeighted(frame, 0.7, plot_img, 0.3, 0)
+    overlay_frame = cv2.addWeighted(frame, 0.5, plot_img, 0.5, 0)
 
     # Write the frame to the output video
     out.write(overlay_frame)
